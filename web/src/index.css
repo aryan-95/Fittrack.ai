@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body { @apply bg-chalk text-iron font-body antialiased; }
+h1, h2, h3 { font-family: "Archivo", system-ui, sans-serif; font-stretch: 85%; letter-spacing: -0.01em; }
+:focus-visible { outline: 2px solid #0E7C7B; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+input, select, textarea { @apply rounded-lg border border-line bg-white px-3 py-2 text-sm w-full; }
+input[type="checkbox"] { @apply w-auto; }

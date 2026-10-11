@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  passwordHash String
+  createdAt    DateTime        @default(now())
+  profiles     Profile[]
+  resets       PasswordReset[]
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Profile {
+  id             String    @id @default(cuid())
+  userId         String
+  name           String
+  age            Int
+  heightCm       Float
+  weightKg       Float
+  sex            String?
+  activityLevel  String    @default("moderate")
+  avgSteps       Int?
+  experience     String    @default("beginner")
+  trainingDays   Int       @default(4)
+  workoutMins    Int       @default(60)
+  dietPref       String    @default("nonveg") // veg | egg | nonveg
+  allergies      String    @default("")
+  goal           String    @default("recomp") // fatloss | muscle | recomp | maintain
+  targetWeightKg Float?
+  targetDate     DateTime?
+  units          String    @default("metric")
+  timezone       String    @default("Asia/Kolkata")
+  quietStart     String    @default("22:30")
+  quietEnd       String    @default("06:30")
+  kcalTarget     Int
+  proteinTarget  Int
+  carbTarget     Int
+  fatTarget      Int
+  fiberTarget    Int
+  waterTargetMl  Int       @default(2500)
+  manualTargets  Boolean   @default(false)
+  assumptions    Json?
+  createdAt      DateTime  @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foods         Food[]
+  foodLogs      FoodLog[]
+  planDays      PlanDay[]
+  sessions      Session[]
+  entries       DailyEntry[]
+  reminders     Reminder[]
+  notifications Notification[]
+  pushSubs      PushSub[]
+}
+
+model Food {
+  id        String   @id @default(cuid())
+  profileId String? // null = seeded/global, set = custom food owned by one profile
+  name      String
+  aliases   String[]
+  kcal      Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  fiber     Float
+  units     Json     @default("{}") // grams per unit, e.g. {"slice":30,"cup":240}
+  density   Float? // g per ml, only when known
+  diet      String   @default("veg") // veg | egg | nonveg
+  source    String
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model FoodLog {
+  id        String   @id @default(cuid())
+  profileId String
+  date      String
+  meal      String
+  name      String
+  foodId    String?
+  quantity  Float
+  unit      String
+  grams     Float
+  kcal      Float
+  protein   Float
+  carbs     Float
+  fat       Float
+  fiber     Float
+  source    String
+  estimated Boolean  @default(false)
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, date])
+}
+
+model Exercise {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  primary      String
+  secondary    String[]
+  equipment    String
+  type         String
+  difficulty   String
+  start        String
+  instructions String[]
+  breathing    String
+  mistakes     String[]
+  safety       String
+  alternatives String[]
+  beginner     String
+  easier       String
+  harder       String
+  sets         Int
+  reps         String
+  restSec      Int
+}
+
+model PlanDay {
+  id        String         @id @default(cuid())
+  profileId String
+  weekday   Int // 0=Sunday .. 6=Saturday
+  name      String
+  isRest    Boolean        @default(false)
+  profile   Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  exercises PlanExercise[]
+
+  @@unique([profileId, weekday])
+}
+
+model PlanExercise {
+  id         String   @id @default(cuid())
+  planDayId  String
+  exerciseId String
+  order      Int
+  sets       Int
+  reps       String
+  planDay    PlanDay  @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+}
+
+model Session {
+  id         String            @id @default(cuid())
+  profileId  String
+  date       String
+  name       String
+  status     String            @default("in_progress") // in_progress | completed | skipped
+  startedAt  DateTime          @default(now())
+  finishedAt DateTime?
+  notes      String?
+  profile    Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  items      SessionExercise[]
+
+  @@unique([profileId, date, name])
+}
+
+model SessionExercise {
+  id         String   @id @default(cuid())
+  sessionId  String
+  exerciseId String
+  order      Int
+  targetSets Int
+  targetReps String
+  status     String   @default("pending") // pending | done | skipped
+  sets       Json     @default("[]") // [{weight,reps,warmup}]
+  note       String?
+  skipReason String?
+  pain       Boolean  @default(false)
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+}
+
+model DailyEntry {
+  id        String  @id @default(cuid())
+  profileId String
+  date      String
+  weightKg  Float?
+  waistCm   Float?
+  steps     Int?
+  sleepH    Float?
+  waterMl   Int     @default(0)
+  fruitVeg  Int?
+  mobility  Boolean @default(false)
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, date])
+}
+
+model Reminder {
+  id           String    @id @default(cuid())
+  profileId    String
+  type         String // workout_soon | workout_now | workout_missed | meal | protein | water | steps | weight | sleep | weekly
+  label        String
+  time         String // HH:MM in the profile timezone
+  days         Int[]
+  enabled      Boolean   @default(true)
+  snoozeUntil  DateTime?
+  lastSentDate String?
+  profile      Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  profileId String
+  type      String
+  title     String
+  body      String
+  actions   Json?
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+}
+
+model PushSub {
+  id        String  @id @default(cuid())
+  profileId String
+  endpoint  String  @unique
+  keys      Json
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}

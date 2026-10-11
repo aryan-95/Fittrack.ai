@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: fittrack
+      POSTGRES_PASSWORD: fittrack
+      POSTGRES_DB: fittrack
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fittrack"]
+      interval: 5s
+      retries: 10
+  server:
+    build: ./server
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://fittrack:fittrack@db:5432/fittrack
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["4000:4000"]
+  web:
+    build: ./web
+    ports: ["8080:80"]
+    depends_on: [server]
+volumes:
+  pgdata:
